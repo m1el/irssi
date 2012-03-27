@@ -25,7 +25,6 @@
 #include "misc.h"
 
 #include "lib-config/iconfig.h"
-#include "recode.h"
 #include "settings.h"
 #include "default-config.h"
 

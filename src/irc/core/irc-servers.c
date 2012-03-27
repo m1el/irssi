@@ -39,7 +39,6 @@
 #include "modes.h"
 
 #include "settings.h"
-#include "recode.h"
 
 #define DEFAULT_MAX_KICKS 1
 #define DEFAULT_MAX_MODES 3
@@ -80,7 +79,6 @@ static void send_message(SERVER_REC *server, const char *target,
 	IRC_SERVER_REC *ircserver;
 	CHANNEL_REC *channel;
 	char *str;
-	char *recoded;
 
         ircserver = IRC_SERVER(server);
 	g_return_if_fail(ircserver != NULL);
@@ -94,11 +92,9 @@ static void send_message(SERVER_REC *server, const char *target,
 			target = channel->name;
 	}
 
-	recoded = recode_out(SERVER(server), msg, target);
-	str = g_strdup_printf("PRIVMSG %s :%s", target, recoded);
+	str = g_strdup_printf("PRIVMSG %s :%s", target, msg);
 	irc_send_cmd_split(ircserver, str, 2, ircserver->max_msgs_in_cmd);
 	g_free(str);
-	g_free(recoded);
 }
 
 static void server_init(IRC_SERVER_REC *server)
@@ -336,30 +332,23 @@ static void sig_disconnected(IRC_SERVER_REC *server)
 static void sig_server_quit(IRC_SERVER_REC *server, const char *msg)
 {
 	char *str;
-	char *recoded;
 
 	if (!IS_IRC_SERVER(server) || !server->connected)
 		return;
 
-	recoded = recode_out(SERVER(server), msg, NULL);
-	str = g_strdup_printf("QUIT :%s", recoded);
+	str = g_strdup_printf("QUIT :%s", msg);
 	irc_send_cmd_now(server, str);
 	g_free(str);
-	g_free(recoded);
 }
 
 void irc_server_send_action(IRC_SERVER_REC *server, const char *target, const char *data)
 {
-	char *recoded;
 
-	recoded = recode_out(SERVER(server), data, target);
-	irc_send_cmdv(server, "PRIVMSG %s :\001ACTION %s\001", target, recoded);
-	g_free(recoded);
+	irc_send_cmdv(server, "PRIVMSG %s :\001ACTION %s\001", target, data);
 }
 
 void irc_server_send_away(IRC_SERVER_REC *server, const char *reason)
 {
-	char *recoded = NULL;
 
 	if (!IS_IRC_SERVER(server))
 		return;
@@ -368,12 +357,10 @@ void irc_server_send_away(IRC_SERVER_REC *server, const char *reason)
 		g_free_and_null(server->away_reason);
                 if (*reason != '\0') {
 			server->away_reason = g_strdup(reason);
-			reason = recoded = recode_out(SERVER(server), reason, NULL);
 		}
 
 		irc_send_cmdv(server, "AWAY :%s", reason);
 	}
-	g_free(recoded);
 }
 
 void irc_server_send_data(IRC_SERVER_REC *server, const char *data, int len)

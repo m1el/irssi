@@ -23,7 +23,6 @@
 #include "net-sendbuffer.h"
 #include "settings.h"
 #include "irssi-version.h"
-#include "recode.h"
 
 #include "irc-servers.h"
 #include "irc-channels.h"
@@ -156,7 +155,6 @@ static void dump_join(IRC_CHANNEL_REC *channel, CLIENT_REC *client)
 	GSList *tmp, *nicks;
 	GString *str;
 	int first;
-	char *recoded;
 
 	proxy_outserver(client, "JOIN %s", channel->name);
 
@@ -194,11 +192,9 @@ static void dump_join(IRC_CHANNEL_REC *channel, CLIENT_REC *client)
 		      client->proxy_address, client->nick, channel->name);
 	if (channel->topic != NULL) {
 		/* this is needed because the topic may be encoded into other charsets internaly */
-		recoded = recode_out(SERVER(client->server), channel->topic, channel->name);
 		proxy_outdata(client, ":%s 332 %s %s :%s\n",
 			      client->proxy_address, client->nick,
-			      channel->name, recoded);
-		g_free(recoded);
+			      channel->name, channel->topic);
 		if (channel->topic_time > 0)
 			proxy_outdata(client, ":%s 333 %s %s %s %d\n",
 			              client->proxy_address, client->nick,

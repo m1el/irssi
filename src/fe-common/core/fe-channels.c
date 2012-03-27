@@ -38,6 +38,7 @@
 #include "fe-channels.h"
 #include "window-items.h"
 #include "printtext.h"
+#include <wchar.h>
 
 static void signal_channel_created(CHANNEL_REC *channel, void *automatic)
 {
@@ -322,12 +323,15 @@ static void cmd_channel_remove(const char *data)
 
 static int get_nick_length(void *data)
 {
-        return strlen(((NICK_REC *) data)->nick);
+		const size_t maxlen = 510;
+		wchar_t wnick[maxlen];
+		size_t len = mbstowcs(wnick, ((NICK_REC*)data)->nick, maxlen);
+		return wcswidth(wnick, len);
 }
 
 static void display_sorted_nicks(CHANNEL_REC *channel, GSList *nicklist)
 {
-        WINDOW_REC *window;
+	WINDOW_REC *window;
 	TEXT_DEST_REC dest;
 	GString *str;
 	GSList *tmp;
@@ -393,7 +397,7 @@ static void display_sorted_nicks(CHANNEL_REC *channel, GSList *nicklist)
                 last_col_rows = rows;
 
 	str = g_string_new(prefix_format);
-	linebuf_size = max_width+1; linebuf = g_malloc(linebuf_size);
+	linebuf_size = max_width*4+1; linebuf = g_malloc(linebuf_size);
 
         col = 0; row = 0;
 	for (tmp = nicklist; tmp != NULL; tmp = tmp->next) {
@@ -408,8 +412,9 @@ static void display_sorted_nicks(CHANNEL_REC *channel, GSList *nicklist)
 			linebuf_size = (columns[col]-item_extra+1)*2;
                         linebuf = g_realloc(linebuf, linebuf_size);
 		}
-		memset(linebuf, ' ', columns[col]-item_extra);
-		linebuf[columns[col]-item_extra] = '\0';
+		int byte_len = (columns[col] - item_extra) + strlen(rec->nick) - get_nick_length(rec);
+		memset(linebuf, ' ', byte_len);
+		linebuf[byte_len] = '\0';
 		memcpy(linebuf, rec->nick, strlen(rec->nick));
 
 		formatnum = rec->op ? TXT_NAMES_NICK_OP :
@@ -428,7 +433,7 @@ static void display_sorted_nicks(CHANNEL_REC *channel, GSList *nicklist)
 				  MSGLEVEL_CLIENTCRAP, "%s", str->str);
 			g_string_truncate(str, 0);
 			if (prefix_format != NULL)
-                                g_string_assign(str, prefix_format);
+				g_string_assign(str, prefix_format);
 			col = 0; row++;
 
 			if (row == last_col_rows)
@@ -491,11 +496,11 @@ void fe_channels_nicklist(CHANNEL_REC *channel, int flags)
 	sorted = g_slist_sort_with_data(sorted, (GCompareDataFunc) nicklist_compare, (void *)nick_flags);
 
 	/* display the nicks */
-        if ((flags & CHANNEL_NICKLIST_FLAG_COUNT) == 0) {
+	if ((flags & CHANNEL_NICKLIST_FLAG_COUNT) == 0) {
 		printformat(channel->server, channel->visible_name,
-			    MSGLEVEL_CLIENTCRAP, TXT_NAMES,
-			    channel->visible_name,
-			    nicks, ops, halfops, voices, normal);
+				MSGLEVEL_CLIENTCRAP, TXT_NAMES,
+				channel->visible_name,
+				nicks, ops, halfops, voices, normal);
 		display_sorted_nicks(channel, sorted);
 	}
 	g_slist_free(sorted);

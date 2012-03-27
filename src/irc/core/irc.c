@@ -20,6 +20,7 @@
 
 #include "module.h"
 #include "modules.h"
+#include "recode.h"
 #include "network.h"
 #include "net-sendbuffer.h"
 #include "rawlog.h"
@@ -48,6 +49,7 @@ void irc_send_cmd_full(IRC_SERVER_REC *server, const char *cmd,
 {
 	char str[513];
 	int len;
+	char *r_cmd;
 
 	g_return_if_fail(server != NULL);
 	g_return_if_fail(cmd != NULL);
@@ -59,19 +61,20 @@ void irc_send_cmd_full(IRC_SERVER_REC *server, const char *cmd,
 	if (server->cmdcount == 0)
 		irc_servers_start_cmd_timeout();
 	server->cmdcount++;
-
+	r_cmd = recode_out(server, cmd, NULL);
 	if (!raw) {
 		/* check that we don't send any longer commands
 		   than 510 bytes (2 bytes for CR+LF) */
-		strncpy(str, cmd, 510);
+		strncpy(str, r_cmd, 510);
 		if (len > 510) len = 510;
+		g_free(r_cmd);
 		str[len] = '\0';
-                cmd = str;
+                r_cmd = str;
 	}
 
 	if (send_now) {
-		rawlog_output(server->rawlog, cmd);
-		server_redirect_command(server, cmd, server->redirect_next);
+		rawlog_output(server->rawlog, r_cmd);
+		server_redirect_command(server, r_cmd, server->redirect_next);
                 server->redirect_next = NULL;
 	}
 
@@ -83,7 +86,7 @@ void irc_send_cmd_full(IRC_SERVER_REC *server, const char *cmd,
 	}
 
 	if (send_now) {
-                irc_server_send_data(server, cmd, len);
+                irc_server_send_data(server, r_cmd, len);
 	} else {
 
 		/* add to queue */
@@ -91,10 +94,10 @@ void irc_send_cmd_full(IRC_SERVER_REC *server, const char *cmd,
 			server->cmdqueue = g_slist_prepend(server->cmdqueue,
 							   server->redirect_next);
 			server->cmdqueue = g_slist_prepend(server->cmdqueue,
-							   g_strdup(cmd));
+							   g_strdup(r_cmd));
 		} else {
 			server->cmdqueue = g_slist_append(server->cmdqueue,
-							  g_strdup(cmd));
+							  g_strdup(r_cmd));
 			server->cmdqueue = g_slist_append(server->cmdqueue,
 							  server->redirect_next);
 		}
@@ -348,14 +351,15 @@ static char *irc_parse_prefix(char *line, char **nick, char **address)
 /* Parse command line sent by server */
 static void irc_parse_incoming_line(IRC_SERVER_REC *server, char *line)
 {
-	char *nick, *address;
+	char *nick, *address, *r_line;
 
 	g_return_if_fail(server != NULL);
 	g_return_if_fail(line != NULL);
-
-	line = irc_parse_prefix(line, &nick, &address);
+	r_line = recode_in(server, line, NULL);
+	line = irc_parse_prefix(r_line, &nick, &address);
 	if (*line != '\0')
 		signal_emit_id(signal_server_event, 4, server, line, nick, address);
+	g_free(r_line);
 }
 
 /* input function: handle incoming server messages */

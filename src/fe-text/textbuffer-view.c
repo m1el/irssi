@@ -176,7 +176,11 @@ view_update_line_cache(TEXT_BUFFER_VIEW_REC *view, LINE_REC *line)
 	g_return_val_if_fail(line->text != NULL, NULL);
 
 	color = ATTR_RESETFG | ATTR_RESETBG;
-	xpos = 0; indent_pos = view->default_indent;
+	xpos = 0; 
+	indent_pos = view->default_indent;
+	if (indent_pos < 0) {
+		indent_pos = 0;
+	}
 	last_space = last_color = 0; last_space_ptr = NULL; sub = NULL;
 
         indent_func = view->default_indent_func;
@@ -230,10 +234,15 @@ view_update_line_cache(TEXT_BUFFER_VIEW_REC *view, LINE_REC *line)
 		}
 
 		if (xpos + char_width > view->width) {
-			xpos = indent_func == NULL ? indent_pos :
-				indent_func(view, line, -1);
+      if (view->default_indent > 0) {
+					xpos = view->default_indent;
+			} else {
+				xpos = indent_func == NULL ? indent_pos :
+					indent_func(view, line, -1);
+			}
 
 			sub = g_new0(LINE_CACHE_SUB_REC, 1);
+			
 			if (last_space > indent_pos && last_space > 10) {
                                 /* go back to last space */
                                 color = last_color;
@@ -244,7 +253,6 @@ view_update_line_cache(TEXT_BUFFER_VIEW_REC *view, LINE_REC *line)
 				xpos = 0;
 				sub->continues = TRUE;
 			}
-
 			sub->start = ptr;
 			sub->indent = xpos;
                         sub->indent_func = indent_func;
@@ -591,7 +599,6 @@ void textbuffer_view_set_default_indent(TEXT_BUFFER_VIEW_REC *view,
 					int longword_noindent,
 					INDENT_FUNC indent_func)
 {
-        if (default_indent != -1)
 		view->default_indent = default_indent;
         if (longword_noindent != -1)
 		view->longword_noindent = longword_noindent;
